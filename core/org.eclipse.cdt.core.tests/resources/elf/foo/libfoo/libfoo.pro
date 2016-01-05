@@ -1,7 +1,11 @@
 QT -= core gui
 
-TARGET = libfoo
+TARGET = foo
 TEMPLATE = lib
+
+exists(../custom.pri) {
+    include(../custom.pri)
+}
 
 DEFINES += LIBFOO_LIBRARY
 

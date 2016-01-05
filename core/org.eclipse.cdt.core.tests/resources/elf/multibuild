@@ -4,27 +4,59 @@ import os
 import re
 import subprocess
 
-spec_list = ["linux-g++-32",
-             "linux-g++-64" ]
+spec_list = {
+  "linux-g++-32": { },
+  "linux-g++-64": { },
+  "linux-arm-gnueabi-g++": { },
+  "linux-powerpc-g++": { "xcompiler": "powerpc-linux-gnu" },
+}
+
+pri_template = """
+# modifications to g++.conf
+QMAKE_CC                = {base}-gcc
+QMAKE_CXX               = {base}-g++
+QMAKE_LINK              = {base}-g++
+QMAKE_LINK_SHLIB        = {base}-g++
+
+# modifications to linux.conf
+QMAKE_AR                = {base}-ar cqs
+QMAKE_OBJCOPY           = {base}-objcopy
+QMAKE_NM                = {base}-nm -P
+QMAKE_STRIP             = {base}-strip
+"""
+
+pri_fname = "custom.pri"
 
 re_fname = re.compile('([\w]+).pro$')
 
-def build_one(pro_path, spec):
+def build_one(pro_path, spec, spec_list):
     pro_name = os.path.basename(pro_path)
     match = re_fname.match(pro_name)
     if not match:
         raise Exception('invalid project file name: ' + repr(pro_name))
+    pro = match.group(1)
     src_dir = os.path.dirname(pro_path)
     base_dir = os.path.dirname(src_dir)
-    dest_dir = "build_" + spec
+    dest_dir = "build_%s_%s" % (pro, spec)
     build_dir = os.path.join(base_dir, dest_dir)
-
 
     # create output directory based on the spec name
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
     old_dir = os.getcwd()
-    cmd_qmake = ["qmake", "-spec", spec, "CONFIG+=debug", pro_path]
+    cmd_qmake = ["qmake"]
+    pri_path = os.path.join(src_dir, pri_fname)
+    spec_dict = spec_list.get(spec)
+    
+    if "xcompiler" in spec_dict:
+        # generate pri file
+        d = { "base": spec_dict.get("xcompiler") }
+        cnt = pri_template.format(**d)
+        with open(pri_path, "w") as out:
+            out.write(cnt)
+    else:
+        cmd_qmake += ["-spec", spec]
+    cmd_qmake += ["CONFIG+=debug", pro_path]
     cmd_clean = ["make", "clean"]
     cmd_make = ["make"]
     exception = None
@@ -36,24 +68,25 @@ def build_one(pro_path, spec):
             # call qmake with the right options
             os.chdir(build_dir)
             subprocess.check_call(cmd_qmake, stdout=log, stderr=log)
-            # call make
             subprocess.check_call(cmd_clean, stdout=log, stderr=log)
             subprocess.check_call(cmd_make, stdout=log, stderr=log)
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            msg = "build failed: " + repr(e)
+            msg = "build failed: %s %s" % (spec, repr(e))
             log.write(msg)
-            exception = Exception("build failed: %s %s" % (spec, repr(e)))
+            exception = Exception(msg)
         finally:
             os.chdir(old_dir)
         log.write("build finished %s\n" % (spec))
+    if "xcompiler" in spec_dict:
+        os.unlink(pri_path)
     if exception:
         raise exception
 
-def build_all(pro_path, specs):
+def build_all(pro_path, specs, spec_list):
     exception = None
     for spec in specs:
         try:
-            build_one(pro_path, spec)
+            build_one(pro_path, spec, spec_list)
         except Exception as e:
             print(e)
             exception = e
@@ -67,8 +100,10 @@ if __name__=="__main__":
     
     parser = argparse.ArgumentParser(description='Build project for multiple targets')
     
+    spec_names = spec_list.keys()
+    
     parser.add_argument('projects', type=str, nargs='+', help='path to .pro file')
-    parser.add_argument('--spec', choices=spec_list, default=None, required=False)
+    parser.add_argument('--spec', choices=spec_names, default=None, required=False)
     
     args = parser.parse_args()
     
@@ -80,8 +115,8 @@ if __name__=="__main__":
     if args.spec:
         args.spec = [args.spec]
     else:
-        args.spec = spec_list
+        args.spec = spec_list.keys()
 
     for project in args.projects:
         pro_path = os.path.abspath(project)
-        build_all(pro_path, args.spec)
+        build_all(pro_path, args.spec, spec_list)

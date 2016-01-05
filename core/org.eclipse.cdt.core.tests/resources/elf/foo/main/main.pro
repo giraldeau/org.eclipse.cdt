@@ -3,5 +3,8 @@ CONFIG += console c++11
 CONFIG -= app_bundle
 CONFIG -= qt
 
-SOURCES += main.cpp
+exists(../custom.pri) {
+    include(../custom.pri)
+}
 
+SOURCES += main.cpp

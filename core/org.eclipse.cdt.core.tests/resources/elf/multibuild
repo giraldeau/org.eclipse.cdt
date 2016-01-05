@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+
+import os
+import subprocess
+
+spec_list = ["linux-g++-32",
+             "linux-g++-64" ]
+
+pro_file = "bidon.pro"
+
+
+
+def build_one(pro_path, spec):
+    src_dir = os.path.dirname(pro_path)
+    base_dir = os.path.dirname(src_dir)
+    dest_dir = "build_" + spec
+    build_dir = os.path.join(base_dir, dest_dir)
+    print(src_dir)
+    print(base_dir)
+    print(dest_dir)
+    print(build_dir)
+
+    # create output directory based on the spec name
+    if not os.path.exists(build_dir):
+        os.makedirs(build_dir)
+    old_dir = os.getcwd()
+    cmd_qmake = ["qmake", "-spec", spec, "CONFIG+=debug", pro_path]
+    cmd_clean = ["make", "clean"]
+    cmd_make = ["make"]
+    exception = None
+    with open("build.log", "w") as log:
+        print("build start %s" % (spec))
+        log.write("build start %s\n" % (spec))
+        log.flush()
+        try:
+            # call qmake with the right options
+            os.chdir(build_dir)
+            subprocess.check_call(cmd_qmake, stdout=log, stderr=log)
+            # call make
+            subprocess.check_call(cmd_clean, stdout=log, stderr=log)
+            subprocess.check_call(cmd_make, stdout=log, stderr=log)
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            msg = "build failed: " + repr(e)
+            log.write(msg)
+            exception = Exception("build failed: %s %s" % (spec, repr(e)))
+        finally:
+            os.chdir(old_dir)
+        log.write("build finished %s\n" % (spec))
+    if exception:
+        raise exception
+
+def build_all(pro_path, specs):
+    exception = None
+    for spec in specs:
+        try:
+            build_one(pro_path, spec)
+        except Exception as e:
+            print(e)
+            exception = e
+        if exception:
+            break
+    
+if __name__=="__main__":
+    pro_path = os.path.abspath(pro_file)
+    build_all(pro_path, spec_list)

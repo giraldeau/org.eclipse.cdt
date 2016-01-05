@@ -44,7 +44,7 @@ def build_one(pro_path, spec, spec_list):
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
     old_dir = os.getcwd()
-    cmd_qmake = ["qmake"]
+    cmd_qmake = ["qmake", "-qt=qt5"]
     pri_path = os.path.join(src_dir, pri_fname)
     spec_dict = spec_list.get(spec)
     

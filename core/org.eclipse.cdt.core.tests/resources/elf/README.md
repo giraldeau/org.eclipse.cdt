@@ -14,7 +14,9 @@ Compile the sources on Ubuntu 15.10
 
 Install required packages
 
-    sudo apt-get install build-essential qt5-qmake linux-libc-dev:i386 libx32stdc++-5-dev g++-powerpc-linux-gnu g++-arm-linux-gnueabi
+    dpkg --add-architecture i386
+    apt-get update
+    sudo apt-get install build-essential qt5-qmake qtbase5-dev linux-libc-dev:i386 libc6-dev-i386 lib32stdc++-5-dev g++-powerpc-linux-gnu g++-arm-linux-gnueabi
 
 Compile the project:
 
